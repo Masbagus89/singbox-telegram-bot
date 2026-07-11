@@ -1,17 +1,16 @@
 import os
 import logging
+import asyncio
 import requests
 import urllib.parse
+from aiohttp import web
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Token akan ditarik otomatis dari pengaturan Render nanti
 TOKEN = os.getenv('8026920485:AAHBe399WAYCpXvtvy_MY8ecsHmzxbIxze4')
-
-# API Server Render Anda yang sudah aktif
-SUBCONVERTER_API = 'https://sub-converter-dyeq.onrender.com/sub' 
+SUBCONVERTER_API = 'https://sub-converter-dyeq.onrender.com/sub'
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -21,9 +20,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
-    
     if not any(user_text.startswith(proto) for proto in ['vless://', 'vmess://', 'trojan://', 'ss://', 'http']):
-        await update.message.reply_text("❌ Format link tidak valid. Kirim link vless/vmess/trojan.")
+        await update.message.reply_text("❌ Format link tidak valid.")
         return
 
     await update.message.reply_text("⏳ Sedang memproses konversi ke Sing-box...")
@@ -39,7 +37,7 @@ async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 with open(file_name, "w", encoding="utf-8") as f:
                     f.write(result_text)
                 with open(file_name, "rb") as f:
-                    await update.message.reply_document(document=f, filename="singbox.json", caption="✅ Berhasil dikonversi!")
+                    await update.message.reply_document(document=f, filename="singbox.json", caption="✅ Berhasil!")
             else:
                 await update.message.reply_text(f"✅ **Hasil:**\n\n```json\n{result_text}\n```", parse_mode="Markdown")
         else:
@@ -47,11 +45,36 @@ async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text("❌ Gagal menghubungi server sub-converter.")
 
-def main():
+# Server dummy agar Render Web Service Free Tier tidak menganggap aplikasi mati
+async def handle_dummy(request):
+    return web.Response(text="Bot is running!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', handle_dummy)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.getenv("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logging.info(f"Dummy web server started on port {port}")
+
+async def main():
+    # Jalankan web server dummy secara asinkron
+    asyncio.create_task(start_web_server())
+    
+    # Jalankan Bot Telegram
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, convert_link))
-    application.run_polling()
+    
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    
+    # Jaga agar loop tetap berjalan
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
