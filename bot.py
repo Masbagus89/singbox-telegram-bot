@@ -8,7 +8,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 # Token akan ditarik otomatis dari pengaturan Render nanti
-TOKEN = os.getenv('TELEGRAM_TOKEN')
+TOKEN = os.getenv('8026920485:AAHBe399WAYCpXvtvy_MY8ecsHmzxbIxze4')
 
 # API Server Render Anda yang sudah aktif
 SUBCONVERTER_API = 'https://sub-converter-dyeq.onrender.com/sub' 
