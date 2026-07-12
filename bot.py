@@ -12,24 +12,19 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 TOKEN = '8026920485:AAHBe399WAYCpXvtvy_MY8ecsHmzxbIxze4'
 
 def generate_singbox_from_template(vless_link):
-    """Mengekstrak Vless dan menggabungkannya ke dalam template Sing-box yang berfungsi"""
+    """Menghasilkan file konfigurasi sing-box yang kompatibel dengan versi terbaru"""
     try:
-        # Parsing manual untuk mengambil data dari link Vless
         decoded_link = urllib.parse.unquote(vless_link)
         parsed = urllib.parse.urlparse(decoded_link)
         
-        userinfo, host_port = parsed.netloc.split('@')
-        uuid = userinfo
+        userinfo = parsed.netloc.split('@')[0]
         address = parsed.netloc.split('@')[1].split(':')[0]
         
         query = urllib.parse.parse_qs(parsed.query)
         host = query.get('host', [''])[0]
         proxyip = query.get('proxyip', [''])[0]
-        path = query.get('path', [''])[0]
         
-        # Membentuk path sesuai dengan konfigurasi yang work
         full_path = f"/?mode=proxy&proxyip={proxyip}"
-        
         vless_tag = "🇺🇸 US_GoogleLLC"
         
         vless_outbound = {
@@ -37,7 +32,7 @@ def generate_singbox_from_template(vless_link):
             "tag": vless_tag,
             "server": address,
             "server_port": 443,
-            "uuid": uuid,
+            "uuid": userinfo,
             "packet_encoding": "xudp",
             "tls": {
                 "enabled": True,
@@ -47,34 +42,26 @@ def generate_singbox_from_template(vless_link):
             "transport": {
                 "type": "ws",
                 "path": full_path,
-                "headers": {
-                    "Host": host
-                }
+                "headers": {"Host": host}
             }
         }
         
-        # Template dasar yang disesuaikan
         template = {
             "log": {"level": "info", "timestamp": True},
-            "experimental": {
-                "clash_api": {
-                    "external_controller": "127.0.0.1:9090",
-                    "external_ui": "ui",
-                    "secret": "",
-                    "external_ui_download_url": "https://gh-proxy.com/https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
-                    "default_mode": "rule"
-                },
-                "cache_file": {"enabled": True, "store_fakeip": True, "store_dns": True}
-            },
             "dns": {
                 "servers": [
                     {"tag": "local", "type": "local"},
                     {"tag": "ggdns", "type": "https", "server": "dns.google", "detour": "Proxy"}
                 ],
+                "rules": [{"outbound": "any", "server": "local"}],
                 "final": "ggdns"
             },
             "inbounds": [
-                {"tag": "tun-in", "type": "tun", "address": ["172.19.0.0/30"], "auto_route": True, "strict_route": True, "platform": {"http_proxy": {"enabled": True, "server": "127.0.0.1", "server_port": 7890}}},
+                {
+                    "tag": "tun-in", "type": "tun", "address": ["172.19.0.0/30"], 
+                    "auto_route": True, "strict_route": True, 
+                    "platform": {"http_proxy": {"enabled": True, "server": "127.0.0.1", "server_port": 7890}}
+                },
                 {"tag": "mixed-in", "type": "mixed", "listen": "127.0.0.1", "listen_port": 7890}
             ],
             "outbounds": [
@@ -110,7 +97,7 @@ async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_document(
             document=file_stream,
             filename='singbox_1.13.json',
-            caption="✅ Konversi berhasil dengan parameter xudp dan path yang diperbaiki."
+            caption="✅ Konfigurasi diperbarui (Tanpa deprecated warning)."
         )
 
 def main():
