@@ -12,6 +12,12 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 TOKEN = '8026920485:AAHBe399WAYCpXvtvy_MY8ecsHmzxbIxze4'
 SUBCONVERTER_API = 'https://sub-converter-dyeq.onrender.com/sub'
 
+# Proxy khusus PythonAnywhere untuk requests biasa
+PROXIES = {
+    "http": "http://proxy.server:3128",
+    "https": "http://proxy.server:3128"
+}
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Halo! Kirimkan link Vless, Trojan, atau Vmess Anda.\n"
@@ -29,7 +35,8 @@ async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_url = f"{SUBCONVERTER_API}?target=singbox&url={encoded_url}"
 
     try:
-        response = requests.get(api_url, timeout=20)
+        # Menambahkan proxies agar bisa menembus batas free tier PythonAnywhere saat menembak API luar
+        response = requests.get(api_url, proxies=PROXIES, timeout=20)
         if response.status_code == 200:
             result_text = response.text
             if len(result_text) > 4000:
@@ -43,9 +50,10 @@ async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text(f"❌ Server API merespon error ({response.status_code}).")
     except Exception as e:
+        logging.error(f"Error saat konversi: {e}")
         await update.message.reply_text("❌ Gagal menghubungi server sub-converter.")
 
-# Server dummy agar Render Web Service Free Tier tidak menganggap aplikasi mati
+# Server dummy (tetap dipertahankan agar tidak bentrok dengan sisa kode bawaan)
 async def handle_dummy(request):
     return web.Response(text="Bot is running!")
 
@@ -63,8 +71,15 @@ async def main():
     # Jalankan web server dummy secara asinkron
     asyncio.create_task(start_web_server())
     
-    # Jalankan Bot Telegram
-    application = Application.builder().token(TOKEN).build()
+    # Jalankan Bot Telegram dengan integrasi proxy PythonAnywhere
+    application = (
+        Application.builder()
+        .token(TOKEN)
+        .proxy_url("http://proxy.server:3128")
+        .get_updates_proxy_url("http://proxy.server:3128")
+        .build()
+    )
+    
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, convert_link))
     
@@ -72,7 +87,7 @@ async def main():
     await application.start()
     await application.updater.start_polling()
     
-    # Jaga agar loop tetap berjalan
+    # Jaga agar loop tetap berjalan nonstop
     while True:
         await asyncio.sleep(3600)
 
