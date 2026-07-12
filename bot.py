@@ -1,7 +1,8 @@
 import os
 import logging
 import asyncio
-import requests
+import json
+import base64
 import urllib.parse
 from aiohttp import web
 from telegram import Update
@@ -10,49 +11,79 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 TOKEN = '8026920485:AAHBe399WAYCpXvtvy_MY8ecsHmzxbIxze4'
-SUBCONVERTER_API = 'https://api.v1.mk/sub'
-# Proxy khusus PythonAnywhere untuk requests biasa
-PROXIES = {
-    "http": "http://proxy.server:3128",
-    "https": "http://proxy.server:3128"
-}
+
+def parse_vless_to_singbox(vless_link):
+    """Mengubah link Vless menjadi format JSON Sing-box secara internal tanpa API luar"""
+    try:
+        parsed = urllib.parse.urlparse(vless_link)
+        userinfo, host_port = parsed.netloc.split('@')
+        uuid = userinfo
+        address, port = host_port.split(':')
+        
+        query = urllib.parse.parse_qs(parsed.query)
+        path = query.get('path', [''])[0]
+        host = query.get('host', [''])[0]
+        sni = query.get('sni', [''])[0]
+        security = query.get('security', ['none'])[0]
+        
+        # Struktur dasar outbound Sing-box
+        singbox_config = {
+            "outbounds": [
+                {
+                    "type": "vless",
+                    "tag": parsed.fragment if parsed.fragment else "Vless-Outbound",
+                    "server": address,
+                    "server_port": int(port),
+                    "uuid": uuid,
+                    "flow": "",
+                    "tls": {
+                        "enabled": True if security in ['tls', 'reality'] else False,
+                        "server_name": sni if sni else host,
+                        "insecure": True
+                    },
+                    "transport": {
+                        "type": "ws" if path or host else "tcp",
+                        "path": path,
+                        "headers": {
+                            "Host": host
+                        } if host else {}
+                    }
+                }
+            ]
+        }
+        return json.dumps(singbox_config, indent=2)
+    except Exception as e:
+        return None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Halo! Kirimkan link Vless, Trojan, atau Vmess Anda.\n"
-        "Saya akan mengubahnya menjadi format Sing-box menggunakan API pribadi Anda."
+        "Halo! Kirimkan link Vless Anda.\n"
+        "Saya akan langsung mengubahnya menjadi format Sing-box secara instan dan aman!"
     )
 
 async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
-    if not any(user_text.startswith(proto) for proto in ['vless://', 'vmess://', 'trojan://', 'ss://', 'http']):
-        await update.message.reply_text("❌ Format link tidak valid.")
+    if not user_text.startswith('vless://'):
+        await update.message.reply_text("❌ Untuk saat ini, kirimkan format link vless:// terlebih dahulu.")
         return
 
-    await update.message.reply_text("⏳ Sedang memproses konversi ke Sing-box...")
-    encoded_url = urllib.parse.quote_plus(user_text)
-    api_url = f"{SUBCONVERTER_API}?target=singbox&url={encoded_url}"
+    await update.message.reply_text("⏳ Sedang memproses konversi internal ke Sing-box...")
+    
+    # Konversi langsung di dalam memori tanpa request internet
+    result_text = parse_vless_to_singbox(user_text)
 
-    try:
-        # Menambahkan proxies agar bisa menembus batas free tier PythonAnywhere saat menembak API luar
-        response = requests.get(api_url, proxies=PROXIES, timeout=20)
-        if response.status_code == 200:
-            result_text = response.text
-            if len(result_text) > 4000:
-                file_name = "singbox.json"
-                with open(file_name, "w", encoding="utf-8") as f:
-                    f.write(result_text)
-                with open(file_name, "rb") as f:
-                    await update.message.reply_document(document=f, filename="singbox.json", caption="✅ Berhasil!")
-            else:
-                await update.message.reply_text(f"✅ **Hasil:**\n\n```json\n{result_text}\n```", parse_mode="Markdown")
+    if result_text:
+        if len(result_text) > 4000:
+            file_name = "singbox.json"
+            with open(file_name, "w", encoding="utf-8") as f:
+                f.write(result_text)
+            with open(file_name, "rb") as f:
+                await update.message.reply_document(document=f, filename="singbox.json", caption="✅ Berhasil Konversi!")
         else:
-            await update.message.reply_text(f"❌ Server API merespon error ({response.status_code}).")
-    except Exception as e:
-        logging.error(f"Error saat konversi: {e}")
-        await update.message.reply_text("❌ Gagal menghubungi server sub-converter.")
+            await update.message.reply_text(f"✅ **Hasil Sing-box:**\n\n```json\n{result_text}\n```", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("❌ Gagal memproses format link tersebut secara internal.")
 
-# Server dummy (tetap dipertahankan agar tidak bentrok dengan sisa kode bawaan)
 async def handle_dummy(request):
     return web.Response(text="Bot is running!")
 
@@ -64,13 +95,11 @@ async def start_web_server():
     port = int(os.getenv("PORT", 10000))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    logging.info(f"Dummy web server started on port {port}")
 
 async def main():
-    # Jalankan web server dummy secara asinkron
     asyncio.create_task(start_web_server())
     
-    # Jalankan Bot Telegram dengan integrasi proxy PythonAnywhere
+    # Jalankan Bot Telegram dengan Proxy PythonAnywhere
     application = (
         Application.builder()
         .token(TOKEN)
@@ -86,7 +115,6 @@ async def main():
     await application.start()
     await application.updater.start_polling()
     
-    # Jaga agar loop tetap berjalan nonstop
     while True:
         await asyncio.sleep(3600)
 
