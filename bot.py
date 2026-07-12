@@ -10,9 +10,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 TOKEN = '8026920485:AAHBe399WAYCpXvtvy_MY8ecsHmzxbIxze4'
-SUBCONVERTER_API = 'https://url.v1.mk/sub'
-
-
+SUBCONVERTER_API = 'https://sub.xeton.dev/sub'
 # Proxy khusus PythonAnywhere untuk requests biasa
 PROXIES = {
     "http": "http://proxy.server:3128",
