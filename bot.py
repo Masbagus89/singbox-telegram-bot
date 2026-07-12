@@ -11,7 +11,6 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 TOKEN = '8026920485:AAHBe399WAYCpXvtvy_MY8ecsHmzxbIxze4'
 SUBCONVERTER_API = 'https://sub-converter-dyeq.onrender.com/sub'
-
 # Proxy khusus PythonAnywhere untuk requests biasa
 PROXIES = {
     "http": "http://proxy.server:3128",
