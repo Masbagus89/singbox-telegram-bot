@@ -62,7 +62,7 @@ def generate_singbox_from_template(vless_link):
             }
         }
         
-        # Template lengkap dari file yang Anda berikan
+        # Template lengkap dengan HTTP clients yang benar
         template = {
             "log": {
                 "level": "info",
@@ -182,6 +182,16 @@ def generate_singbox_from_template(vless_link):
                     "listen_port": 7890
                 }
             ],
+            "http_clients": [
+                {
+                    "tag": "default",
+                    "detour": "Proxy"
+                },
+                {
+                    "tag": "direct",
+                    "detour": "direct"
+                }
+            ],
             "outbounds": [
                 {
                     "tag": "Proxy",
@@ -238,6 +248,14 @@ def generate_singbox_from_template(vless_link):
                     {
                         "ip_is_private": True,
                         "outbound": "direct"
+                    },
+                    {
+                        "rule_set": "geosite-cn",
+                        "outbound": "direct"
+                    },
+                    {
+                        "rule_set": "geoip-cn",
+                        "outbound": "direct"
                     }
                 ],
                 "rule_set": [
@@ -266,8 +284,13 @@ def generate_singbox_from_template(vless_link):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Kirim link Vless Anda untuk mendapatkan config sing-box yang sudah diperbaiki.\n\n"
-        "Contoh: vless://uuid@server.com:443?host=server.com&proxyip=proxyip"
+        "📡 Kirim link Vless Anda untuk mendapatkan config sing-box yang sudah diperbaiki.\n\n"
+        "Contoh: vless://uuid@server.com:443?host=server.com&proxyip=proxyip\n\n"
+        "✨ Fitur:\n"
+        "• TUN & Mixed inbound\n"
+        "• DNS dengan FakeIP\n"
+        "• Clash API support\n"
+        "• Auto route & strict route"
     )
 
 async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -286,11 +309,11 @@ async def convert_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
             document=file_stream,
             filename='singbox_config.json',
             caption="✅ Konfigurasi berhasil dibuat!\n\n"
-                   "📌 Fitur:\n"
-                   "• TUN & Mixed inbound\n"
-                   "• DNS dengan FakeIP\n"
-                   "• Clash API support\n"
-                   "• Auto route & strict route"
+                   "📌 Cara penggunaan:\n"
+                   "1. Buka aplikasi sing-box\n"
+                   "2. Import file config\n"
+                   "3. Start service\n\n"
+                   "⚠️ Pastikan rule-set sudah terdownload sebelum start"
         )
     else:
         await update.message.reply_text("❌ Gagal membuat konfigurasi. Periksa format link Anda.")
